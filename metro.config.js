@@ -1,8 +1,7 @@
 const { getDefaultConfig } = require('expo/metro-config');
-
 const config = getDefaultConfig(__dirname);
 
-// เพิ่มนามสกุลไฟล์ที่ต้องการให้ Metro ยอมรับ
-config.resolver.assetExts.push('glb', 'gltf', 'obj', 'mtl');
+// ต้องระบุให้ชัดเจนว่ารู้จักทั้งนามสกุลไฟล์ 3D และรูปภาพ
+config.resolver.assetExts.push('glb', 'gltf', 'png', 'jpg', 'jpeg');
 
 module.exports = config;

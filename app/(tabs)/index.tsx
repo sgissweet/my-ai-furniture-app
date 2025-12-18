@@ -1,6 +1,7 @@
-import { ContactShadows, OrbitControls, useGLTF, useTexture } from '@react-three/drei/native';
+import { ContactShadows, Environment, OrbitControls, useGLTF, useTexture } from '@react-three/drei/native';
 import { Canvas } from '@react-three/fiber/native';
-import React, { Suspense } from 'react';
+import { Asset } from 'expo-asset';
+import React, { Suspense, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import * as THREE from 'three';
 import { GLTF } from 'three-stdlib';
@@ -10,41 +11,52 @@ interface GLTFResult extends GLTF {
   materials: any;
 }
 
-// ส่วนของห้อง: พื้น และ ผนังที่มีความหนา (Thickness)
-function RoomBase() {
-  const wallThickness = 0.5;
-  const wallHeight = 4;
-  const roomSize = 10;
-  const floorThickness = 0.5;
+const wallTextureAsset = require('../../assets/images/argyle.png');
 
-  // 1. โหลด Texture (เปลี่ยนชื่อไฟล์ตามที่มีใน assets)
-  // ถ้ายังไม่มีไฟล์ภาพ ให้คอมเมนต์บรรทัดนี้ออกก่อนครับ
-  const texture = useTexture(require('../../assets/images/argyle.png')) as THREE.Texture; 
-  
-  // ปรับการซ้ำของลาย (Tiling) ให้ดูสมจริง
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2, 1); 
+function RoomBase() {
+  const [ready, setReady] = useState(false);
+
+  // บังคับโหลด Asset ให้เสร็จก่อนเริ่ม render texture
+  useEffect(() => {
+    Asset.fromModule(wallTextureAsset).downloadAsync().then(() => setReady(true));
+  }, []);
+
+  // ... ใน RoomBase
+  const wallAsset = require('../../assets/images/argyle.png');
+  // ใช้ Asset.fromModule เพื่อดึง URI ที่แท้จริงออกมา (รองรับทั้ง Web และ Native)
+  const asset = Asset.fromModule(wallAsset);
+  const texture = useTexture(asset.uri || wallAsset) as THREE.Texture;
+
+  if (texture) {
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 2); // ปรับเลขนี้ตามความเหมาะสมของลาย
+  }
+
+  // ถ้ายังโหลดไม่เสร็จ ให้คืนค่า null หรือพื้นเปล่าๆ ไปก่อน เพื่อไม่ให้แอปค้าง
+  if (!ready || !texture) return (
+    <mesh position={[0, -0.25, 0]}>
+      <boxGeometry args={[10, 0.5, 10]} />
+      <meshStandardMaterial color="#f0f0f0" />
+    </mesh>
+  );
 
   return (
     <group>
-      {/* 1. พื้นห้อง (Floor) - อยู่ที่ตำแหน่ง y = 0 */}
-      <mesh position={[0, -floorThickness / 2, 0]}>
-        <boxGeometry args={[roomSize, floorThickness, roomSize]} />
+      {/* พื้นห้อง */}
+      <mesh position={[0, -0.25, 0]} receiveShadow>
+        <boxGeometry args={[10, 0.5, 10]} />
         <meshStandardMaterial color="#f0f0f0" />
       </mesh>
 
-      {/* 2. ผนังฝั่งซ้าย (Left Wall) - ปรับตำแหน่ง y ให้เริ่มจาก 0 */}
-      <mesh position={[-(roomSize / 2 + wallThickness / 2), wallHeight / 2 - 0.01, 0]}>
-        <boxGeometry args={[wallThickness, wallHeight, roomSize + (wallThickness * 2)]} />
-        {/* ใส่ Texture ที่นี่ */}
-        <meshStandardMaterial map={texture} color="#ffffff" /> 
+      {/* ผนัง (ใส่ Texture) */}
+      <mesh position={[-5.25, 2, 0]}>
+        <boxGeometry args={[0.5, 4, 11]} />
+        <meshStandardMaterial map={texture} />
       </mesh>
-
-      {/* 3. ผนังฝั่งหลัง (Back Wall) - ปรับตำแหน่ง y ให้เริ่มจาก 0 */}
-      <mesh position={[0, wallHeight / 2 - 0.01, -(roomSize / 2 + wallThickness / 2)]}>
-        <boxGeometry args={[roomSize, wallHeight, wallThickness]} />
-        {/* ถ้าอยากให้ผนังคนละด้านมีลายต่างกัน ก็โหลด Texture เพิ่มอีกตัวมาใส่ตรงนี้ได้ครับ */}
-        <meshStandardMaterial map={texture} color="#ffffff" />
+      
+      <mesh position={[0, 2, -5.25]}>
+        <boxGeometry args={[10, 4, 0.5]} />
+        <meshStandardMaterial map={texture} />
       </mesh>
     </group>
   );
@@ -80,7 +92,7 @@ export default function App() {
           <FurnitureModel url={sofaFile} position={[0, 0, 0]} />
           
           <ContactShadows opacity={0.5} scale={15} blur={2} far={4.5} />
-          {/* <Environment preset="city" /> */}
+          <Environment preset="city" />
         </Suspense>
 
         {/* --- ระบบ Zoom และ Control --- */}
