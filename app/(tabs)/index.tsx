@@ -1,98 +1,97 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { ContactShadows, OrbitControls, useGLTF, useTexture } from '@react-three/drei/native';
+import { Canvas } from '@react-three/fiber/native';
+import React, { Suspense } from 'react';
+import { View } from 'react-native';
+import * as THREE from 'three';
+import { GLTF } from 'three-stdlib';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+interface GLTFResult extends GLTF {
+  nodes: any;
+  materials: any;
+}
 
-export default function HomeScreen() {
+// ส่วนของห้อง: พื้น และ ผนังที่มีความหนา (Thickness)
+function RoomBase() {
+  const wallThickness = 0.5;
+  const wallHeight = 4;
+  const roomSize = 10;
+  const floorThickness = 0.5;
+
+  // 1. โหลด Texture (เปลี่ยนชื่อไฟล์ตามที่มีใน assets)
+  // ถ้ายังไม่มีไฟล์ภาพ ให้คอมเมนต์บรรทัดนี้ออกก่อนครับ
+  const texture = useTexture(require('../../assets/images/argyle.png')) as THREE.Texture; 
+  
+  // ปรับการซ้ำของลาย (Tiling) ให้ดูสมจริง
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2, 1); 
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <group>
+      {/* 1. พื้นห้อง (Floor) - อยู่ที่ตำแหน่ง y = 0 */}
+      <mesh position={[0, -floorThickness / 2, 0]}>
+        <boxGeometry args={[roomSize, floorThickness, roomSize]} />
+        <meshStandardMaterial color="#f0f0f0" />
+      </mesh>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {/* 2. ผนังฝั่งซ้าย (Left Wall) - ปรับตำแหน่ง y ให้เริ่มจาก 0 */}
+      <mesh position={[-(roomSize / 2 + wallThickness / 2), wallHeight / 2 - 0.01, 0]}>
+        <boxGeometry args={[wallThickness, wallHeight, roomSize + (wallThickness * 2)]} />
+        {/* ใส่ Texture ที่นี่ */}
+        <meshStandardMaterial map={texture} color="#ffffff" /> 
+      </mesh>
+
+      {/* 3. ผนังฝั่งหลัง (Back Wall) - ปรับตำแหน่ง y ให้เริ่มจาก 0 */}
+      <mesh position={[0, wallHeight / 2 - 0.01, -(roomSize / 2 + wallThickness / 2)]}>
+        <boxGeometry args={[roomSize, wallHeight, wallThickness]} />
+        {/* ถ้าอยากให้ผนังคนละด้านมีลายต่างกัน ก็โหลด Texture เพิ่มอีกตัวมาใส่ตรงนี้ได้ครับ */}
+        <meshStandardMaterial map={texture} color="#ffffff" />
+      </mesh>
+    </group>
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+function FurnitureModel({ url, position }: { url: any; position: [number, number, number] }) {
+  const gltf = useGLTF(url) as GLTFResult;
+  return (
+    <primitive 
+      object={gltf.scene} 
+      position={position} 
+      scale={0.001} 
+      castShadow 
+    />
+  );
+}
+
+export default function App() {
+  const sofaFile = require('../../assets/DEKAD_alarm_clock.glb');
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#d1d1d1' }}>
+      <Canvas 
+        shadows 
+        // ปรับ Camera ให้มองเห็นกว้างขึ้นเล็กน้อย
+        camera={{ position: [12, 12, 12], fov: 40, near: 0.1, far: 1000 }}
+      >
+        <ambientLight intensity={0.7} />
+        <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow />
+        
+        <Suspense fallback={null}>
+          <RoomBase />
+          <FurnitureModel url={sofaFile} position={[0, 0, 0]} />
+          
+          <ContactShadows opacity={0.5} scale={15} blur={2} far={4.5} />
+          {/* <Environment preset="city" /> */}
+        </Suspense>
+
+        {/* --- ระบบ Zoom และ Control --- */}
+        <OrbitControls 
+          makeDefault 
+          enableZoom={true}       // เปิดการ Zoom
+          minDistance={5}         // ซูมเข้าได้ใกล้สุดแค่ไหน
+          maxDistance={30}        // ซูมออกได้ไกลสุดแค่ไหน
+          maxPolarAngle={Math.PI / 2.1} // ป้องกันไม่ให้หมุนลงไปใต้พื้น
+        />
+      </Canvas>
+    </View>
+  );
+}
